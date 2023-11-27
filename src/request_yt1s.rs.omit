@@ -1,0 +1,45 @@
+pub async fn request(v: String) -> Result<String, reqwest::Error> {
+    if v.is_empty() {
+        return Ok(String::from("/"));
+    }
+
+    let client = reqwest::Client::new();
+    let f = reqwest::multipart::Form::new()
+        .text("query", format!("https://www.youtube.com/watch?v={v}"))
+        .text("vt", "downloader");
+
+    let r: serde_json::Value = client
+        // .post("https://yt1s.com/api/ajaxSearch/index")
+        .post("https://tomp3.cc/api/ajax/search")
+        .multipart(f)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    println!("{}", v);
+    println!("{}", r.to_string());
+
+    let g = reqwest::multipart::Form::new()
+        .text("vid", r["vid"].as_str().map(|s| String::from(s)).unwrap())
+        .text(
+            "k",
+            r["links"]["mp4"]["137"]["k"]
+                .as_str()
+                .map(|s| String::from(s))
+                .unwrap(),
+        );
+
+    let s: serde_json::Value = client
+        // .post("https://yt1s.com/api/ajaxConvert/convert")
+        .post("https://tomp3.cc/api/ajax/convert")
+        .multipart(g)
+        .send()
+        .await?
+        .json()
+        .await?;
+
+    println!("{}", s.to_string());
+
+    Ok(s["dlink"].as_str().map(|s| String::from(s)).unwrap())
+}
