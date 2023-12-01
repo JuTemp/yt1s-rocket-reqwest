@@ -13,19 +13,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[derive(Debug)]
+pub enum DescError {
+    OpenDescFileError(String),
+    ParseDescFileError(String),
+    IoError(String),
+    FindIndexNone(String),
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Link {
     id: String,
     desc: String,
 }
 
-pub fn get_desc(id: &String) -> Result<String, std::io::Error> {
-    let data = util::json_parse::parse::<Vec<Link>>(util::file_io::open(TITLE_FILE)?.as_str())?;
-    Ok(data.iter().find(|x| &x.id == id).unwrap().desc.clone())
+pub fn get_desc(id: &String) -> Result<String, DescError> {
+    let data = util::json_parse::parse::<Vec<Link>>(
+        util::file_io::open(TITLE_FILE)
+            .map_err(|err| DescError::OpenDescFileError(err.to_string()))?
+            .as_str(),
+    )
+    .map_err(|err| DescError::ParseDescFileError(err.to_string()))?;
+    Ok(data
+        .iter()
+        .find(|x| &x.id == id)
+        .ok_or(DescError::FindIndexNone(String::from(
+            "DescError::FindIndexNone",
+        )))?
+        .desc
+        .clone())
 }
 
-pub fn add_desc(id: &String, desc: &String) -> Result<(), std::io::Error> {
-    let mut data = util::json_parse::parse::<Vec<Link>>(util::file_io::open(TITLE_FILE)?.as_str())?;
+pub fn add_desc(id: &String, desc: &String) -> Result<(), DescError> {
+    let mut data = util::json_parse::parse::<Vec<Link>>(
+        util::file_io::open(TITLE_FILE)
+            .map_err(|err| DescError::OpenDescFileError(err.to_string()))?
+            .as_str(),
+    )
+    .map_err(|err| DescError::ParseDescFileError(err.to_string()))?;
     data.append(
         vec![Link {
             id: id.to_string(),
@@ -35,17 +60,34 @@ pub fn add_desc(id: &String, desc: &String) -> Result<(), std::io::Error> {
     );
     Ok(util::file_io::write(
         TITLE_FILE,
-        util::json_parse::stringify::<Vec<Link>>(&data)?.as_str(),
-    )?)
+        util::json_parse::stringify::<Vec<Link>>(&data)
+            .map_err(|err| DescError::ParseDescFileError(err.to_string()))?
+            .as_str(),
+    )
+    .map_err(|err| DescError::IoError(err.to_string()))?)
 }
 
-pub fn remove_desc(id: &String) -> Result<(), std::io::Error> {
-    let mut data = util::json_parse::parse::<Vec<Link>>(util::file_io::open(TITLE_FILE)?.as_str())?;
-    data.remove(data.iter().position(|x| &x.id == id).unwrap());
+pub fn remove_desc(id: &String) -> Result<(), DescError> {
+    let mut data = util::json_parse::parse::<Vec<Link>>(
+        util::file_io::open(TITLE_FILE)
+            .map_err(|err| DescError::OpenDescFileError(err.to_string()))?
+            .as_str(),
+    )
+    .map_err(|err| DescError::ParseDescFileError(err.to_string()))?;
+    data.remove(
+        data.iter()
+            .position(|x| &x.id == id)
+            .ok_or(DescError::FindIndexNone(String::from(
+                "DescError::FindIndexNone",
+            )))?,
+    );
     Ok(util::file_io::write(
         TITLE_FILE,
-        util::json_parse::stringify::<Vec<Link>>(&data)?.as_str(),
-    )?)
+        util::json_parse::stringify::<Vec<Link>>(&data)
+            .map_err(|err| DescError::ParseDescFileError(err.to_string()))?
+            .as_str(),
+    )
+    .map_err(|err| DescError::IoError(err.to_string()))?)
 }
 
 pub async fn add_mp4(id: &String, url: &String) -> Result<(), DownloadMp4Error> {
