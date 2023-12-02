@@ -1,11 +1,19 @@
+#[macro_use]
+extern crate lazy_static;
+
+use structopt::Opt;
 use util::file_reqwest::{download_mp4, DownloadMp4Error};
 
 // mod request_yt1s;
 mod start_server;
+pub mod structopt;
 mod util;
 
-pub const TITLE_FILE: &str = "./link.json";
-pub const MP4_PATH: &str = "./mp4/";
+lazy_static! {
+    static ref OPTS: Opt = structopt::get_opt();
+    pub static ref TITLE_FILE: &'static str = OPTS.title_file.as_str();
+    pub static ref MP4_PATH: &'static str = OPTS.mp4_path.as_str();
+}
 
 // #[tokio::main]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,6 +29,17 @@ pub enum DescError {
     FindIndexNone(String),
 }
 
+impl ToString for DescError {
+    fn to_string(&self) -> String {
+        match self {
+            DescError::OpenDescFileError(err) => err.to_string(),
+            DescError::ParseDescFileError(err) => err.to_string(),
+            DescError::IoError(err) => err.to_string(),
+            DescError::FindIndexNone(err) => err.to_string(),
+        }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Link {
     id: String,
@@ -29,7 +48,7 @@ pub struct Link {
 
 pub fn get_desc(id: &String) -> Result<String, DescError> {
     let data = util::json_parse::parse::<Vec<Link>>(
-        util::file_io::open(TITLE_FILE)
+        util::file_io::open(*TITLE_FILE)
             .map_err(|err| DescError::OpenDescFileError(err.to_string()))?
             .as_str(),
     )
@@ -46,11 +65,14 @@ pub fn get_desc(id: &String) -> Result<String, DescError> {
 
 pub fn add_desc(id: &String, desc: &String) -> Result<(), DescError> {
     let mut data = util::json_parse::parse::<Vec<Link>>(
-        util::file_io::open(TITLE_FILE)
+        util::file_io::open(*TITLE_FILE)
             .map_err(|err| DescError::OpenDescFileError(err.to_string()))?
             .as_str(),
     )
     .map_err(|err| DescError::ParseDescFileError(err.to_string()))?;
+    if let Some(index) = data.iter().position(|x| &x.id == id) {
+        data.remove(index);
+    }
     data.append(
         vec![Link {
             id: id.to_string(),
@@ -59,7 +81,7 @@ pub fn add_desc(id: &String, desc: &String) -> Result<(), DescError> {
         .as_mut(),
     );
     Ok(util::file_io::write(
-        TITLE_FILE,
+        *TITLE_FILE,
         util::json_parse::stringify::<Vec<Link>>(&data)
             .map_err(|err| DescError::ParseDescFileError(err.to_string()))?
             .as_str(),
@@ -69,7 +91,7 @@ pub fn add_desc(id: &String, desc: &String) -> Result<(), DescError> {
 
 pub fn remove_desc(id: &String) -> Result<(), DescError> {
     let mut data = util::json_parse::parse::<Vec<Link>>(
-        util::file_io::open(TITLE_FILE)
+        util::file_io::open(*TITLE_FILE)
             .map_err(|err| DescError::OpenDescFileError(err.to_string()))?
             .as_str(),
     )
@@ -82,7 +104,7 @@ pub fn remove_desc(id: &String) -> Result<(), DescError> {
             )))?,
     );
     Ok(util::file_io::write(
-        TITLE_FILE,
+        *TITLE_FILE,
         util::json_parse::stringify::<Vec<Link>>(&data)
             .map_err(|err| DescError::ParseDescFileError(err.to_string()))?
             .as_str(),

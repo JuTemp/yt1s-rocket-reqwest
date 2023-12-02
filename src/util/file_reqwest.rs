@@ -7,6 +7,15 @@ pub enum DownloadMp4Error {
     IoError(String),
 }
 
+impl ToString for DownloadMp4Error {
+    fn to_string(&self) -> String {
+        match self {
+            DownloadMp4Error::ReqwestError(err) => err.to_string(),
+            DownloadMp4Error::IoError(err) => err.to_string(),
+        }
+    }
+}
+
 pub async fn download_mp4(url: &String, file_name: &String) -> Result<(), DownloadMp4Error> {
     let response = Client::new()
         .get(url)

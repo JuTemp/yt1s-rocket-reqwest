@@ -7,7 +7,7 @@ use rocket::{
 };
 use serde::Deserialize;
 
-use crate::util;
+use crate::{util, MP4_PATH};
 
 #[get("/")]
 async fn root() -> RawHtml<&'static str> {
@@ -36,10 +36,9 @@ struct AddDesc {
 
 #[post("/add_desc", format = "json", data = "<body>")]
 fn add(body: String) -> Result<status::Accepted<String>, status::BadRequest<String>> {
-    println!("{}", "add");
     let body = util::json_parse::parse::<AddDesc>(body.as_str())
-        .map_err(|_| status::BadRequest(String::from("Err")))?;
-    crate::add_desc(&body.id, &body.desc).map_err(|_| status::BadRequest(String::from("Err")))?;
+        .map_err(|err| status::BadRequest(String::from(err.to_string())))?;
+    crate::add_desc(&body.id, &body.desc).map_err(|err| status::BadRequest(String::from(err.to_string())))?;
     Ok(status::Accepted(String::from("Ok")))
 }
 
@@ -51,8 +50,8 @@ struct RemoveDesc {
 #[post("/remove_desc", format = "json", data = "<body>")]
 fn remove(body: String) -> Result<status::Accepted<String>, status::BadRequest<String>> {
     let body = util::json_parse::parse::<RemoveDesc>(body.as_str())
-        .map_err(|_| status::BadRequest(String::from("Err")))?;
-    crate::remove_desc(&body.id).map_err(|_| status::BadRequest(String::from("Err")))?;
+        .map_err(|err| status::BadRequest(err.to_string()))?;
+    crate::remove_desc(&body.id).map_err(|err| status::BadRequest(err.to_string()))?;
     Ok(status::Accepted(String::from("Ok")))
 }
 
@@ -65,11 +64,10 @@ struct AddMp4struct {
 #[post("/add_mp4", format = "json", data = "<body>")]
 async fn add_mp4(body: String) -> Result<status::Accepted<String>, status::BadRequest<String>> {
     let body = util::json_parse::parse::<AddMp4struct>(body.as_str())
-        .map_err(|_| status::BadRequest(String::from("Err")))?;
+        .map_err(|err| status::BadRequest(err.to_string()))?;
     crate::add_mp4(&body.id, &body.url)
         .await
-        .map_err(|_| status::BadRequest(String::from("Err")))?;
-
+        .map_err(|err| status::BadRequest(err.to_string()))?;
     Ok(status::Accepted(String::from("Ok")))
 }
 
@@ -82,7 +80,7 @@ async fn not_found() -> &'static str {
 pub async fn start() -> Result<(), rocket::Error> {
     rocket::build()
         .configure(rocket::Config::figment().merge(("port", 20833)))
-        .mount("/static/", FileServer::from(crate::MP4_PATH))
+        .mount("/static/", FileServer::from(*MP4_PATH))
         .mount("/", routes![root, parse_link, add, remove, add_mp4])
         .register("/", catchers![not_found])
         .launch()
